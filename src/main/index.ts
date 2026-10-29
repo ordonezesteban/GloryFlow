@@ -2,6 +2,8 @@ import { app, BrowserWindow, ipcMain, screen } from 'electron'
 import { createOperatorWindow, createLiveWindow, closeLiveWindow, getLiveWindow } from './windows'
 import { IPC_CHANNELS } from '../shared/constants'
 import { Slide } from '../shared/types'
+import { getDatabase } from './database'
+import { setupDatabaseIPC } from './ipc/database'
 
 function setupIPC() {
   ipcMain.handle(IPC_CHANNELS.GET_DISPLAYS, () => {
@@ -68,7 +70,9 @@ app.commandLine.appendSwitch('disable-gpu-sandbox')
 app.disableHardwareAcceleration()
 
 app.whenReady().then(() => {
+  getDatabase()
   setupIPC()
+  setupDatabaseIPC()
   createOperatorWindow()
 
   app.on('activate', () => {
