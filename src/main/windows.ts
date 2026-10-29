@@ -37,22 +37,47 @@ export function createOperatorWindow() {
 }
 
 export function createLiveWindow(displayId: number) {
+  const displays = screen.getAllDisplays()
+
+  console.log(
+    '[GLORYFLOW] Displays:',
+    displays.map((d) => ({
+      id: d.id,
+      bounds: d.bounds,
+      primary: d.id === screen.getPrimaryDisplay().id
+    }))
+  )
+
+  console.log('[GLORYFLOW] ID solicitado:', displayId)
+
+  const targetDisplay = displays.find((d) => d.id === displayId)
+
+  if (!targetDisplay) {
+    console.error('[GLORYFLOW] No existe el monitor seleccionado')
+    return null
+  }
+
+  // Cerrar la ventana anterior solamente después de validar la selección.
   if (liveWindow && !liveWindow.isDestroyed()) {
     liveWindow.close()
   }
 
-  const displays = screen.getAllDisplays()
-  const display = displays.find((d, idx) => idx === displayId) || displays[1] || displays[0]
+  const { x, y, width, height } = targetDisplay.bounds
 
-  liveWindow = new BrowserWindow({
-    x: display.bounds.x,
-    y: display.bounds.y,
-    width: display.bounds.width,
-    height: display.bounds.height,
-    fullscreen: true,
-    frame: false,
-    backgroundColor: '#000000',
+  console.log('[GLORYFLOW] Monitor elegido:', targetDisplay.id, {
+    x, y, width, height
+  })
+
+  const windowRef = new BrowserWindow({
+    x,
+    y,
+    width,
+    height,
     title: 'GloryFlow - Proyección',
+    frame: false,
+    show: false,
+    backgroundColor: '#000000',
+    skipTaskbar: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       nodeIntegration: false,
@@ -61,17 +86,32 @@ export function createLiveWindow(displayId: number) {
     }
   })
 
+  liveWindow = windowRef
+
   if (process.env.NODE_ENV === 'development') {
-    liveWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + '/src/renderer/live.html')
+    windowRef.loadURL(
+      process.env['ELECTRON_RENDERER_URL'] + '/src/renderer/live.html'
+    )
   } else {
-    liveWindow.loadFile(join(__dirname, '../renderer/live.html'))
+    windowRef.loadFile(join(__dirname, '../renderer/live.html'))
   }
 
-  liveWindow.on('closed', () => {
-    liveWindow = null
+  windowRef.once('ready-to-show', () => {
+    if (windowRef.isDestroyed()) return
+
+    windowRef.setBounds({ x, y, width, height })
+    windowRef.show()
+
+    console.log('[GLORYFLOW] Bounds efectivos:', windowRef.getBounds())
   })
 
-  return liveWindow
+  windowRef.on('closed', () => {
+    if (liveWindow === windowRef) {
+      liveWindow = null
+    }
+  })
+
+  return windowRef
 }
 
 export function getOperatorWindow() {

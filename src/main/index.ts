@@ -6,16 +6,26 @@ import { Slide } from '../shared/types'
 function setupIPC() {
   ipcMain.handle(IPC_CHANNELS.GET_DISPLAYS, () => {
     const displays = screen.getAllDisplays()
-    return displays.map((display, index) => ({
-      id: index,
-      bounds: display.bounds,
-      primary: display.id === screen.getPrimaryDisplay().id
+    const primary = screen.getPrimaryDisplay()
+
+    return displays.map((display) => ({
+        id: display.id, // ID real de Electron, no el índice
+        bounds: display.bounds,
+        primary: display.id === primary.id
     }))
   })
 
-  ipcMain.handle(IPC_CHANNELS.CREATE_LIVE_WINDOW, (_event, displayId: number) => {
-    createLiveWindow(displayId)
-  })
+  ipcMain.handle(
+    IPC_CHANNELS.CREATE_LIVE_WINDOW,
+    (_event, displayId: number) => {
+      const live = createLiveWindow(displayId)
+
+      return {
+        success: live !== null,
+        displayId: displayId
+      }
+    }
+  )
 
   ipcMain.handle(IPC_CHANNELS.CLOSE_LIVE_WINDOW, () => {
     closeLiveWindow()
@@ -49,6 +59,13 @@ function setupIPC() {
     }
   })
 }
+
+app.commandLine.appendSwitch('no-sandbox')
+app.commandLine.appendSwitch('disable-setuid-sandbox')
+app.commandLine.appendSwitch('disable-dev-shm-usage')
+app.commandLine.appendSwitch('disable-gpu')
+app.commandLine.appendSwitch('disable-gpu-sandbox')
+app.disableHardwareAcceleration()
 
 app.whenReady().then(() => {
   setupIPC()
